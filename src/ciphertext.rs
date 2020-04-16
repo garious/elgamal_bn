@@ -1,10 +1,7 @@
+use bn::{Fr, Group, G1};
 use core::ops::{Add, Div, Mul, Sub};
-use bn::{Fr, G1, Group};
-use serde::{Deserialize, Serialize};
 
-use crate::bn_curve::public::*;
-use rand_core::OsRng;
-use rand::{thread_rng};
+use crate::public::*;
 
 #[derive(Copy, Clone)]
 pub struct Ciphertext {
@@ -124,7 +121,8 @@ impl Div<Fr> for Ciphertext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bn_curve::private::SecretKey;
+    use crate::private::SecretKey;
+    use rand::thread_rng;
 
     #[test]
     fn test_homomorphic_addition() {
@@ -227,22 +225,4 @@ mod tests {
         let check = div_dec_pltxt == G1::one();
         assert!(check);
     }
-
-    // #[test]
-    // fn test_serde_ciphertext() {
-    //     use bincode;
-    //
-    //     let mut csprng = OsRng;
-    //     let sk = SecretKey::new(&mut csprng);
-    //     let pk = PublicKey::from(&sk);
-    //
-    //     let plaintext: RistrettoPoint = RistrettoPoint::random(&mut csprng);
-    //     let enc_plaintext = pk.encrypt(&plaintext);
-    //
-    //     let encoded = bincode::serialize(&enc_plaintext).unwrap();
-    //     let decoded: Ciphertext = bincode::deserialize(&encoded).unwrap();
-    //
-    //     assert_eq!(enc_plaintext.pk, decoded.pk);
-    //     assert_eq!(enc_plaintext.points, decoded.points);
-    // }
 }

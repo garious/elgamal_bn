@@ -1,19 +1,15 @@
 #![allow(non_snake_case)]
-use clear_on_drop::clear::Clear;
-use core::ops::Mul;
-use rand_core::{CryptoRng, OsRng, RngCore};
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
-use bincode::rustc_serialize::{encode, decode};
-use bincode::SizeLimit::Infinite;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha512};
 use bincode;
+use bincode::rustc_serialize::encode;
+use bincode::SizeLimit::Infinite;
+use sha2::{Digest, Sha512};
 
-use bn::{Fr, G1, Group};
+use bn::{Fr, Group, G1};
 
-use crate::bn_curve::ciphertext::*;
-use crate::bn_curve::public::*;
+use crate::ciphertext::*;
+use crate::public::*;
 
 /// Secret key is a scalar forming the public Key.
 #[derive(Clone)]
@@ -52,11 +48,6 @@ impl SecretKey {
         point2 - point1 * self.0
     }
 
-    // /// Convert to bytes
-    // pub fn to_bytes(&self) -> [u8; 32] {
-    //     self.0.to_bytes()
-    // }
-
     /// Prove correct decryption without depending on the zkp toolkit, which
     /// uses Merlin for Transcripts. The latter is hard to mimic in solidity
     /// smart contracts. To this end, we define this alternative proof of correct
@@ -75,26 +66,20 @@ impl SecretKey {
         let announcement_base_ctxtp0 = ciphertext.points.0 * announcement_random;
 
         let hash = Sha512::new()
-                .chain(encode(message, Infinite).unwrap())
-                .chain(encode(&ciphertext.points.0, Infinite).unwrap())
-                .chain(encode(&ciphertext.points.1, Infinite).unwrap())
-                .chain(encode(&announcement_base_G, Infinite).unwrap())
-                .chain(encode(&announcement_base_ctxtp0, Infinite).unwrap())
-                .chain(encode(&G1::one(), Infinite).unwrap())
-                .chain(encode(&pk.get_point(), Infinite).unwrap());
+            .chain(encode(message, Infinite).unwrap())
+            .chain(encode(&ciphertext.points.0, Infinite).unwrap())
+            .chain(encode(&ciphertext.points.1, Infinite).unwrap())
+            .chain(encode(&announcement_base_G, Infinite).unwrap())
+            .chain(encode(&announcement_base_ctxtp0, Infinite).unwrap())
+            .chain(encode(&G1::one(), Infinite).unwrap())
+            .chain(encode(&pk.get_point(), Infinite).unwrap());
 
         let mut output = [0u8; 64];
         output.copy_from_slice(hash.result().as_slice());
         let challenge = Fr::interpret(&output);
 
         let response = announcement_random + challenge * self.get_scalar();
-        (
-            (
-                announcement_base_G,
-                announcement_base_ctxtp0,
-            ),
-            response,
-        )
+        ((announcement_base_G, announcement_base_ctxtp0), response)
     }
 }
 
@@ -144,30 +129,18 @@ mod tests {
         assert!(pk.verify_correct_decryption_no_Merlin(proof, ciphertext, decryption));
     }
 
-    // #[test]
-    // fn prove_false_decryption_no_Merlin() {
-    //     let mut csprng = OsRng;
-    //     let sk = SecretKey::new(&mut csprng);
-    //     let pk = PublicKey::from(&sk);
-    //
-    //     let plaintext = RistrettoPoint::random(&mut csprng);
-    //     let ciphertext = pk.encrypt(&plaintext);
-    //
-    //     let fake_decryption = RistrettoPoint::random(&mut csprng);
-    //     let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &fake_decryption);
-    //
-    //     assert!(!pk.verify_correct_decryption_no_Merlin(&proof, &ciphertext, &fake_decryption));
-    // }
-    //
-    // #[test]
-    // fn test_serde_secretkey() {
-    //     use bincode;
-    //
-    //     let mut csprng = OsRng;
-    //     let sk = SecretKey::new(&mut csprng);
-    //
-    //     let encoded = bincode::serialize(&sk).unwrap();
-    //     let decoded: SecretKey = bincode::deserialize(&encoded).unwrap();
-    //     assert_eq!(sk, decoded);
-    // }
+    #[test]
+    fn prove_false_decryption_no_Merlin() {
+        let mut csprng = rand::thread_rng();
+        let sk = SecretKey::new(&mut csprng);
+        let pk = PublicKey::from(&sk);
+
+        let plaintext = G1::random(&mut csprng);
+        let ciphertext = pk.encrypt(&plaintext);
+
+        let fake_decryption = G1::random(&mut csprng);
+        let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &fake_decryption);
+
+        assert!(!pk.verify_correct_decryption_no_Merlin(proof, ciphertext, fake_decryption));
+    }
 }

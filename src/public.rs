@@ -1,17 +1,14 @@
 #![allow(non_snake_case)]
 extern crate rand;
 
-use bn::{Fr, G1, Group};
+use bn::{Fr, Group, G1};
 
-use clear_on_drop::clear::Clear;
-use rand_core::OsRng;
-use rand::{thread_rng};
-use bincode::rustc_serialize::{encode, decode};
+use bincode::rustc_serialize::encode;
 use bincode::SizeLimit::Infinite;
-use serde::{Deserialize, Serialize};
+use rand::thread_rng;
 use sha2::{Digest, Sha512};
 
-use crate::bn_curve::ciphertext::*;
+use crate::ciphertext::*;
 
 /// The `PublicKey` struct represents an ElGamal public key.
 #[derive(Copy, Clone)]
@@ -23,41 +20,37 @@ impl PublicKey {
     /// by scalars.
     ///
     /// #Example
-//    / ```
-//    / extern crate rand;
-//    / extern crate curve25519_dalek;
-//    / extern crate elgamal_ristretto;
-//    / use rand_core::OsRng;
-//    / use elgamal_ristretto::public::{PublicKey, };
-//    / use elgamal_ristretto::private::{SecretKey, };
-//    / use curve25519_dalek::ristretto::{RistrettoPoint, };
-//    / use curve25519_dalek::scalar::{Scalar, };
-//    /
-//    / # fn main() {
-//    /        let mut csprng = OsRng;
-//    /        // Generate key pair
-//    /        let sk = SecretKey::new(&mut csprng);
-//    /        let pk = PublicKey::from(&sk);
-//    /
-//    /        // Generate random messages
-//    /        let ptxt1 = RistrettoPoint::random(&mut csprng);
-//    /        let ptxt2 = RistrettoPoint::random(&mut csprng);
-//    /
-//    /        // Encrypt messages
-//    /        let ctxt1 = pk.encrypt(&ptxt1);
-//    /        let ctxt2 = pk.encrypt(&ptxt2);
-//    /
-//    /        // Add ciphertexts and check that addition is maintained in the plaintexts
-//    /        let encrypted_addition = ctxt1 + ctxt2;
-//    /        let decrypted_addition = sk.decrypt(&encrypted_addition);
-//    /
-//    /        assert_eq!(ptxt1 + ptxt2, decrypted_addition);
-//    /
-//    /        // Multiply by scalar and check that multiplication is maintained in the plaintext
-//    /        let scalar_mult = Scalar::random(&mut csprng);
-//    /        assert_eq!(sk.decrypt(&(ctxt1 * scalar_mult)), scalar_mult * ptxt1);
-//    / # }
-//    / ```
+    /// ```
+    /// extern crate rand;
+    /// use elgamal_bn::public::{PublicKey, };
+    /// use elgamal_bn::private::{SecretKey, };
+    /// use bn::{Fr, G1, Group};
+    ///
+    /// # fn main() {
+    ///        let mut csprng = rand::thread_rng();
+    ///        // Generate key pair
+    ///        let sk = SecretKey::new(&mut csprng);
+    ///        let pk = PublicKey::from(&sk);
+    ///
+    ///        // Generate random messages
+    ///        let ptxt1 = G1::random(&mut csprng);
+    ///        let ptxt2 = G1::random(&mut csprng);
+    ///
+    ///        // Encrypt messages
+    ///        let ctxt1 = pk.encrypt(&ptxt1);
+    ///        let ctxt2 = pk.encrypt(&ptxt2);
+    ///
+    ///        // Add ciphertexts and check that addition is maintained in the plaintexts
+    ///        let encrypted_addition = ctxt1 + ctxt2;
+    ///        let decrypted_addition = sk.decrypt(&encrypted_addition);
+    ///
+    ///        assert_eq!(ptxt1 + ptxt2, decrypted_addition);
+    ///
+    ///        // Multiply by scalar and check that multiplication is maintained in the plaintext
+    ///        let scalar_mult = Fr::random(&mut csprng);
+    ///        assert_eq!(sk.decrypt(&(ctxt1 * scalar_mult)), ptxt1 * scalar_mult);
+    /// # }
+    /// ```
     pub fn encrypt(self, message: &G1) -> Ciphertext {
         let rng = &mut thread_rng();
         // todo: version of rand crate is pretty old for this to work.
@@ -77,34 +70,30 @@ impl PublicKey {
         self.0
     }
 
-    // /// This function is only defined for testing purposes for the
-    // /// `prove_correct_decryption_no_Merlin`. It should not be used. If verification is
-    // /// performed in Rust, one should use the `prove_correct_decryption` and
-    // /// `verify_correct_decryption` instead.
-    // /// Example
-    // /// ```
-    // /// extern crate rand;
-    // /// extern crate curve25519_dalek;
-    // /// extern crate elgamal_ristretto;
-    // /// use rand_core::OsRng;
-    // /// use elgamal_ristretto::public::{PublicKey, };
-    // /// use elgamal_ristretto::private::{SecretKey, };
-    // /// use curve25519_dalek::ristretto::RistrettoPoint;
-    // ///
-    // /// # fn main() {
-    // ///    let mut csprng = OsRng;
-    // ///    let sk = SecretKey::new(&mut csprng);
-    // ///    let pk = PublicKey::from(&sk);
-    // ///
-    // ///    let plaintext = RistrettoPoint::random(&mut csprng);
-    // ///    let ciphertext = pk.encrypt(&plaintext);
-    // ///
-    // ///    let decryption = sk.decrypt(&ciphertext);
-    // ///    let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &decryption);
-    // ///
-    // ///    assert!(pk.verify_correct_decryption_no_Merlin(&proof, &ciphertext, &decryption));
-    // /// # }
-    // /// ```
+    /// This function is only defined for testing purposes for the
+    /// `prove_correct_decryption_no_Merlin`. Verification should
+    /// happen in `Solidity`.
+    /// Example
+    /// ```
+    /// extern crate rand;
+    /// use elgamal_bn::public::{PublicKey, };
+    /// use elgamal_bn::private::{SecretKey, };
+    /// use bn::{G1, Group};
+    ///
+    /// # fn main() {
+    ///    let mut csprng = rand::thread_rng();
+    ///    let sk = SecretKey::new(&mut csprng);
+    ///    let pk = PublicKey::from(&sk);
+    ///
+    ///    let plaintext = G1::random(&mut csprng);
+    ///    let ciphertext = pk.encrypt(&plaintext);
+    ///
+    ///    let decryption = sk.decrypt(&ciphertext);
+    ///    let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &decryption);
+    ///
+    ///    assert!(pk.verify_correct_decryption_no_Merlin(proof, ciphertext, decryption));
+    /// # }
+    /// ```
     pub fn verify_correct_decryption_no_Merlin(
         self,
         proof: ((G1, G1), Fr),
@@ -125,22 +114,10 @@ impl PublicKey {
         output.copy_from_slice(hash.result().as_slice());
         let challenge = Fr::interpret(&output);
 
-        G1::one() * response
-            == announcement_base_G + self.get_point() * challenge
+        G1::one() * response == announcement_base_G + self.get_point() * challenge
             && ciphertext.points.0 * response
-            == announcement_base_ctxtp0
-            + (ciphertext.points.1 - message) * challenge
+                == announcement_base_ctxtp0 + (ciphertext.points.1 - message) * challenge
     }
-
-    // /// Convert to bytes
-    // pub fn to_bytes(&self) -> [u8; 32] {
-    //     self.0.compress().to_bytes()
-    // }
-    //
-    // /// Generate public key from bytes
-    // pub fn from_bytes(bytes: &[u8]) -> PublicKey {
-    //     PublicKey(CompressedRistretto::from_slice(bytes).decompress().unwrap())
-    // }
 }
 
 impl From<G1> for PublicKey {
@@ -155,57 +132,3 @@ impl PartialEq for PublicKey {
         self.0 == other.0
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::private::SecretKey;
-//     use curve25519_dalek::ristretto::CompressedRistretto;
-//
-//     #[test]
-//     fn test_encryption() {
-//         let sk = SecretKey::from(Scalar::from_bytes_mod_order([
-//             0x90, 0x76, 0x33, 0xfe, 0x1c, 0x4b, 0x66, 0xa4, 0xa2, 0x8d, 0x2d, 0xd7, 0x67, 0x83,
-//             0x86, 0xc3, 0x53, 0xd0, 0xde, 0x54, 0x55, 0xd4, 0xfc, 0x9d, 0xe8, 0xef, 0x7a, 0xc3,
-//             0x1f, 0x35, 0xbb, 0x05,
-//         ]));
-//
-//         let pk = PublicKey::from(&sk);
-//
-//         let ptxt = CompressedRistretto([
-//             226, 242, 174, 10, 106, 188, 78, 113, 168, 132, 169, 97, 197, 0, 81, 95, 88, 227, 11,
-//             106, 165, 130, 221, 141, 182, 166, 89, 69, 224, 141, 45, 118,
-//         ])
-//             .decompress()
-//             .unwrap();
-//
-//         let ctxt = pk.encrypt(&ptxt);
-//         assert_eq!(ptxt, sk.decrypt(&ctxt));
-//     }
-//
-//     #[test]
-//     fn test_byte_conversion() {
-//         let mut csprng = OsRng;
-//         let sk = SecretKey::new(&mut csprng);
-//         let pk = PublicKey::from(&sk);
-//
-//         let pk_byte = pk.to_bytes();
-//         let pk_from_bytes = PublicKey::from_bytes(&pk_byte);
-//
-//         assert_eq!(pk, pk_from_bytes);
-//     }
-//
-//     #[test]
-//     fn test_serde_pubkey() {
-//         use bincode;
-//
-//         let mut csprng = OsRng;
-//         let sk = SecretKey::new(&mut csprng);
-//         let pk = PublicKey::from(&sk);
-//
-//         let encoded = bincode::serialize(&pk).unwrap();
-//         let decoded: PublicKey = bincode::deserialize(&encoded).unwrap();
-//
-//         assert_eq!(pk, decoded);
-//     }
-// }
