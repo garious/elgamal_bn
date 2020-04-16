@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 extern crate rand;
 
-use bn::{Fr, Group, G1};
+use bn::{Fr, Group, G1, AffineG1};
 
 use bincode::rustc_serialize::encode;
 use bincode::SizeLimit::Infinite;
@@ -65,9 +65,19 @@ impl PublicKey {
         }
     }
 
-    /// Get the public key as a RistrettoPoint
+    /// Get the public key point
     pub fn get_point(&self) -> G1 {
         self.0
+    }
+
+    /// Get the public key point as an Affine point
+    pub fn get_point_affine(&self) -> AffineG1 {
+        AffineG1::from_jacobian(self.0).unwrap()
+    }
+
+    /// Get the public key point as a string
+    pub fn get_point_string(&self) -> (String, String) {
+        get_point_as_str(self.0)
     }
 
     /// This function is only defined for testing purposes for the
@@ -120,6 +130,40 @@ impl PublicKey {
     }
 }
 
+pub fn get_point_as_str(point: G1) -> (String, String) {
+    let point = AffineG1::from_jacobian(point).unwrap();
+    let coords_x = point.x().into_u256().0;
+    let coords_y = point.y().into_u256().0;
+
+    if coords_x[1] == 0 && coords_y[1] == 0 {
+        return (
+            coords_x[0].to_string(),
+            coords_y[0].to_string()
+        )
+    }
+
+    else if coords_x[1] == 0 {
+        return (
+            coords_x[0].to_string(),
+            coords_y[0].to_string() + &coords_y[1].to_string()
+        )
+    }
+
+    else if coords_y[1] == 0 {
+        return (
+            coords_x[0].to_string() + &coords_x[1].to_string(),
+            coords_y[0].to_string()
+        )
+    }
+
+    else {
+        return (
+            coords_x[0].to_string() + &coords_x[1].to_string(),
+            coords_y[0].to_string() + &coords_y[1].to_string()
+        )
+    }
+}
+
 impl From<G1> for PublicKey {
     /// Given a secret key, compute its corresponding Public key
     fn from(point: G1) -> PublicKey {
@@ -130,5 +174,19 @@ impl From<G1> for PublicKey {
 impl PartialEq for PublicKey {
     fn eq(&self, other: &PublicKey) -> bool {
         self.0 == other.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::thread_rng;
+
+    #[test]
+    fn test_string_conversion() {
+        let pk = PublicKey::from(G1::one());
+        let pk_string = pk.get_point_string();
+        assert_eq!(pk_string.0, "1");
+        assert_eq!(pk_string.1, "2");
     }
 }

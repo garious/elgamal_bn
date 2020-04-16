@@ -1,4 +1,4 @@
-use bn::{Fr, Group, G1};
+use bn::{Fr, Group, G1, AffineG1};
 use core::ops::{Add, Div, Mul, Sub};
 
 use crate::public::*;
@@ -10,8 +10,29 @@ pub struct Ciphertext {
 }
 
 impl Ciphertext {
+    /// Get the points of the ciphertext
     pub fn get_points(self) -> (G1, G1) {
         return (self.points.0, self.points.1);
+    }
+
+    /// Get the points of the ciphertext in affine form
+    pub fn get_points_affine(self) -> (AffineG1, AffineG1) {
+        let (point_1, point_2) = self.get_points();
+        return (
+            AffineG1::from_jacobian(point_1).unwrap(),
+            AffineG1::from_jacobian(point_2).unwrap()
+        )
+    }
+
+    /// Get the points of the ciphertext as strings. It returns in the form
+    /// `((x_point_1, y_point_1), (x_point_2, y_point_2))`
+    pub fn get_points_string(self) -> ((String, String), (String, String)) {
+        let (point_1, point_2) = self.get_points();
+
+        return (
+            get_point_as_str(point_1),
+            get_point_as_str(point_2)
+            )
     }
 }
 
