@@ -138,7 +138,7 @@ impl PublicKey {
 
     pub fn from_hex_string(hex_coords: (String, String)) -> Result<Self, ConversionError> {
         if hex_coords.0[0..2].to_owned() != "0x" || hex_coords.1[0..2].to_owned() != "0x" {
-            return Err(ConversionError::PkGeneration);
+            return Err(ConversionError::IncorrectHexString);
         }
 
         // todo: probably change this to a padding instead
