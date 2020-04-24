@@ -9,10 +9,17 @@ edition = "2018"
 [dependencies]
 rand_core = { version = "0.5.1", default-features = false }
 rand = {version = "0.5", default-features = true}
+rustc-serialize = { version = "0.3"}
 sha2 = "0.8.0"
 clear_on_drop = { version = "0.2" }
 bn = {git = "https://github.com/paritytech/bn"}
-bincode = "0.6"
+rustc-hex = { version = "2", default-features = false }
+thiserror = { version = "1", optional = true }
+
+[dependencies.bincode]
+version = "0.6"
+default-features = false
+features = ["rustc-serialize"]
 
 [dev-dependencies]
 criterion = "0.2"

@@ -24,14 +24,14 @@ impl Ciphertext {
         )
     }
 
-    /// Get the points of the ciphertext as strings. It returns in the form
+    /// Get the points of the ciphertext as hexadecimal strings. It returns in the form
     /// `((x_point_1, y_point_1), (x_point_2, y_point_2))`
-    pub fn get_points_string(self) -> ((String, String), (String, String)) {
+    pub fn get_points_hex_string(self) -> ((String, String), (String, String)) {
         let (point_1, point_2) = self.get_points();
 
         return (
-            get_point_as_str(point_1),
-            get_point_as_str(point_2)
+            get_point_as_hex_str(point_1),
+            get_point_as_hex_str(point_2)
             )
     }
 }

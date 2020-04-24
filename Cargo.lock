@@ -26,7 +26,6 @@ dependencies = [
  "byteorder",
  "num-traits 0.1.43",
  "rustc-serialize",
- "serde 0.8.23",
 ]
 
 [[package]]
@@ -78,7 +77,7 @@ dependencies = [
  "lazy_static",
  "memchr",
  "regex-automata",
- "serde 1.0.106",
+ "serde",
 ]
 
 [[package]]
@@ -163,7 +162,7 @@ dependencies = [
  "rand_xoshiro",
  "rayon",
  "rayon-core",
- "serde 1.0.106",
+ "serde",
  "serde_derive",
  "serde_json",
  "tinytemplate",
@@ -244,7 +243,7 @@ dependencies = [
  "csv-core",
  "itoa",
  "ryu",
- "serde 1.0.106",
+ "serde",
 ]
 
 [[package]]
@@ -281,7 +280,10 @@ dependencies = [
  "criterion",
  "rand",
  "rand_core 0.5.1",
+ "rustc-hex",
+ "rustc-serialize",
  "sha2",
+ "thiserror",
 ]
 
 [[package]]
@@ -576,12 +578,6 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "0.8.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dad3f759919b92c3068c696c15c3d17238234498bbdcc80f2c469606f948ac8"
-
-[[package]]
-name = "serde"
 version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36df6ac6412072f67cf767ebbde4133a5b2e88e76dc6187fa7104cd16f783399"
@@ -605,7 +601,7 @@ checksum = "da07b57ee2623368351e9a0488bb0b261322a15a6e0ae53e243cbdc0f4208da9"
 dependencies = [
  "itoa",
  "ryu",
- "serde 1.0.106",
+ "serde",
 ]
 
 [[package]]
@@ -647,12 +643,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54b3d3d2ff68104100ab257bb6bb0cb26c901abe4bd4ba15961f3bf867924012"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca972988113b7715266f91250ddb98070d033c62a011fa0fcc57434a649310dd"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "tinytemplate"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57a3c6667d3e65eb1bc3aed6fd14011c6cbc3a0665218ab7f5daf040b9ec371a"
 dependencies = [
- "serde 1.0.106",
+ "serde",
  "serde_json",
 ]
 

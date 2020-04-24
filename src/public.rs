@@ -1,17 +1,24 @@
 #![allow(non_snake_case)]
 extern crate rand;
 
-use bn::{Fr, Group, G1, AffineG1};
+extern crate bincode;
+extern crate rustc_serialize;
 
-use bincode::rustc_serialize::encode;
-use bincode::SizeLimit::Infinite;
+use bn::*;
+use crate::errors::ConversionError;
+
 use rand::thread_rng;
 use sha2::{Digest, Sha512};
 
 use crate::ciphertext::*;
+use bincode::SizeLimit::Infinite;
+use bincode::rustc_serialize::{encode, decode};
+use rustc_serialize::{Encodable, Decodable};
+use rustc_serialize::hex::{FromHex, ToHex};
+
 
 /// The `PublicKey` struct represents an ElGamal public key.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct PublicKey(G1);
 
 impl PublicKey {
@@ -76,8 +83,8 @@ impl PublicKey {
     }
 
     /// Get the public key point as a string
-    pub fn get_point_string(&self) -> (String, String) {
-        get_point_as_str(self.0)
+    pub fn get_point_hex_string(&self) -> (String, String) {
+        get_point_as_hex_str(self.0)
     }
 
     /// This function is only defined for testing purposes for the
@@ -128,40 +135,29 @@ impl PublicKey {
             && ciphertext.points.0 * response
                 == announcement_base_ctxtp0 + (ciphertext.points.1 - message) * challenge
     }
+
+    pub fn from_hex_string(hex_coords: (String, String)) -> Result<Self, ConversionError> {
+        if hex_coords.0[0..2].to_owned() != "0x" || hex_coords.1[0..2].to_owned() != "0x" {
+            return Err(ConversionError::PkGeneration);
+        }
+
+        // todo: probably change this to a padding instead
+        if hex_coords.0.len() != 66 || hex_coords.1.len() != 66 {
+            return Err(ConversionError::IncorrectHexLength);
+        }
+
+        let combined_string = "04".to_owned() + &hex_coords.0[2..] + &hex_coords.1[2..];
+        let pk_point: G1 = from_hex(&combined_string).unwrap();
+        Ok(PublicKey::from(pk_point))
+    }
 }
 
-pub fn get_point_as_str(point: G1) -> (String, String) {
-    let point = AffineG1::from_jacobian(point).unwrap();
-    let coords_x = point.x().into_u256().0;
-    let coords_y = point.y().into_u256().0;
-
-    if coords_x[1] == 0 && coords_y[1] == 0 {
-        return (
-            coords_x[0].to_string(),
-            coords_y[0].to_string()
-        )
-    }
-
-    else if coords_x[1] == 0 {
-        return (
-            coords_x[0].to_string(),
-            coords_y[0].to_string() + &coords_y[1].to_string()
-        )
-    }
-
-    else if coords_y[1] == 0 {
-        return (
-            coords_x[0].to_string() + &coords_x[1].to_string(),
-            coords_y[0].to_string()
-        )
-    }
-
-    else {
-        return (
-            coords_x[0].to_string() + &coords_x[1].to_string(),
-            coords_y[0].to_string() + &coords_y[1].to_string()
-        )
-    }
+// outputs a point in hex format '0x...'
+pub fn get_point_as_hex_str(point: G1) -> (String, String) {
+    let hex_point = into_hex(point).unwrap();
+    let sol_hex_x = "0x".to_owned() + &hex_point[2..66];
+    let sol_hex_y = "0x".to_owned() + &hex_point[66..];
+    (sol_hex_x, sol_hex_y)
 }
 
 impl From<G1> for PublicKey {
@@ -177,16 +173,53 @@ impl PartialEq for PublicKey {
     }
 }
 
+pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
+    encode(&obj, Infinite).ok().map(|e| e.to_hex())
+}
+
+pub fn from_hex<S: Decodable>(s: &str) -> Option<S> {
+    let s = s.from_hex().unwrap();
+
+    decode(&s).ok()
+}
+
+pub fn reserialize<S: Encodable + Decodable>(obj: S) -> S {
+    let s = into_hex(obj).unwrap();
+
+    from_hex(&s).unwrap()
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use rand::thread_rng;
+    use crate::private::SecretKey;
 
     #[test]
-    fn test_string_conversion() {
-        let pk = PublicKey::from(G1::one());
-        let pk_string = pk.get_point_string();
-        assert_eq!(pk_string.0, "1");
-        assert_eq!(pk_string.1, "2");
+    fn test_hex_string_conversion() {
+        let pk = PublicKey::from(G1::one() + G1::one());
+        let pk_string = pk.get_point_hex_string();
+        assert_eq!(pk_string.0, "0x030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3");
+        assert_eq!(pk_string.1, "0x15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4");
     }
+
+    #[test]
+    fn test_from_hex_conversion() {
+        let sk = SecretKey::new(&mut thread_rng());
+        let pk = PublicKey::from(&sk);
+        let pk_hex = pk.get_point_hex_string();
+
+        let pk_from_hex = PublicKey::from_hex_string(pk_hex).unwrap();
+        assert_eq!(pk, pk_from_hex)
+    }
+
+    #[test]
+    fn test_failure_from_hex_conversion() {
+        let hex_coords: (String, String) = (
+            "030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3".to_owned(),
+            "0x15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4".to_owned()
+        );
+        let pk_from_hex = PublicKey::from_hex_string(hex_coords);
+        assert!(!pk_from_hex.is_ok())
+    }
+
 }
