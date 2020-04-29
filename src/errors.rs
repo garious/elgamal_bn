@@ -10,5 +10,8 @@ pub enum ConversionError {
     IncorrectHexString,
     // This error occurs when the length of a hex string is unexpected
     #[cfg_attr(feature = "std", error("Expected hex string of length 64"))]
-    IncorrectHexLength
+    IncorrectHexLength,
+    // This error occurs when we expect a decimal string but receive hexadecimal
+    #[cfg_attr(feature = "std", errpr("Expected decimal string, received hex"))]
+    IncorrectDecString,
 }

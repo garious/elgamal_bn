@@ -1,4 +1,4 @@
-use bn::{Fr, Group, G1, AffineG1};
+use bn::{Fr, Group, G1, AffineG1, Fq};
 use core::ops::{Add, Div, Mul, Sub};
 
 use crate::public::*;
@@ -61,6 +61,31 @@ impl Ciphertext {
         let point1: G1 = from_hex(&point1_hex).unwrap();
         let point2: G1 = from_hex(&point2_hex).unwrap();
         Ok(Ciphertext{pk: pk, points: (point1, point2)})
+    }
+
+    /// Convert decimal string points to Ciphertext
+    pub fn from_dec_string((point1, point2): ((String, String), (String, String)), pk: PublicKey)
+                           -> Result<Self, ConversionError> {
+        if point1.0[0..2].to_owned() != "0x" || point1.1[0..2].to_owned() != "0x" ||
+            point2.0[0..2].to_owned() != "0x" || point2.1[0..2].to_owned() != "0x"
+        {
+            return Err(ConversionError::IncorrectDecString);
+        }
+
+        let affine_point_1 = AffineG1::new(
+            Fq::from_str(&point1.0).unwrap(),
+            Fq::from_str(&point1.1).unwrap()
+        ).unwrap();
+
+        let affine_point_2 = AffineG1::new(
+            Fq::from_str(&point2.0).unwrap(),
+            Fq::from_str(&point2.1).unwrap()
+        ).unwrap();
+
+        Ok(Ciphertext{
+            pk: pk,
+            points: (G1::from(affine_point_1), G1::from(affine_point_2))
+        })
     }
 }
 
