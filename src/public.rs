@@ -15,6 +15,7 @@ use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::{encode, decode};
 use rustc_serialize::{Encodable, Decodable};
 use rustc_serialize::hex::{FromHex, ToHex};
+use self::rustc_serialize::hex::FromHexError;
 
 
 /// The `PublicKey` struct represents an ElGamal public key.
@@ -83,8 +84,11 @@ impl PublicKey {
     }
 
     /// Get the public key point as a string
-    pub fn get_point_hex_string(&self) -> (String, String) {
-        get_point_as_hex_str(self.0)
+    pub fn get_point_hex_string(&self) -> Result<(String, String), ConversionError> {
+        Ok(match get_point_as_hex_str(self.0) {
+            Ok(hex_pair) => hex_pair,
+            Err(e) => return Err(e)
+        })
     }
 
     /// This function is only defined for testing purposes for the
@@ -143,21 +147,24 @@ impl PublicKey {
 
         // todo: probably change this to a padding instead
         if hex_coords.0.len() != 66 || hex_coords.1.len() != 66 {
-            return Err(ConversionError::IncorrectHexLength);
+            return Err(ConversionError::InvalidHexLength);
         }
 
         let combined_string = "04".to_owned() + &hex_coords.0[2..] + &hex_coords.1[2..];
-        let pk_point: G1 = from_hex(&combined_string).unwrap();
+        let pk_point: G1 = match from_hex(&combined_string) {
+            Ok(point) => point,
+            Err(e) => return Err(ConversionError::from(e)),
+        };
         Ok(PublicKey::from(pk_point))
     }
 }
 
 // outputs a point in hex format '0x...'
-pub fn get_point_as_hex_str(point: G1) -> (String, String) {
-    let hex_point = into_hex(point).unwrap();
+pub fn get_point_as_hex_str(point: G1) -> Result<(String, String), ConversionError> {
+    let hex_point = into_hex(point).ok_or(ConversionError::InvalidHexConversion)?;
     let sol_hex_x = "0x".to_owned() + &hex_point[2..66];
     let sol_hex_y = "0x".to_owned() + &hex_point[66..];
-    (sol_hex_x, sol_hex_y)
+    Ok((sol_hex_x, sol_hex_y))
 }
 
 impl From<G1> for PublicKey {
@@ -177,17 +184,20 @@ pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
     encode(&obj, Infinite).ok().map(|e| e.to_hex())
 }
 
-pub fn from_hex<S: Decodable>(s: &str) -> Option<S> {
-    let s = s.from_hex().unwrap();
+pub fn from_hex<S: Decodable>(s: &str) -> Result<S, ConversionError> {
+    let s = match s.from_hex(){
+        Ok(hex_string) => hex_string,
+        Err(e) => return Err(ConversionError::from(e)),
+    };
 
-    decode(&s).ok()
+    let decodable = match decode(&s) {
+        Ok(decodable) => decodable,
+        Err(e) => return Err(ConversionError::from(e))
+    };
+
+    Ok(decodable)
 }
 
-pub fn reserialize<S: Encodable + Decodable>(obj: S) -> S {
-    let s = into_hex(obj).unwrap();
-
-    from_hex(&s).unwrap()
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -197,7 +207,7 @@ mod tests {
     #[test]
     fn test_hex_string_conversion() {
         let pk = PublicKey::from(G1::one() + G1::one());
-        let pk_string = pk.get_point_hex_string();
+        let pk_string = pk.get_point_hex_string().unwrap();
         assert_eq!(pk_string.0, "0x030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3");
         assert_eq!(pk_string.1, "0x15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4");
     }
@@ -206,7 +216,7 @@ mod tests {
     fn test_from_hex_conversion() {
         let sk = SecretKey::new(&mut thread_rng());
         let pk = PublicKey::from(&sk);
-        let pk_hex = pk.get_point_hex_string();
+        let pk_hex = pk.get_point_hex_string().unwrap();
 
         let pk_from_hex = PublicKey::from_hex_string(pk_hex).unwrap();
         assert_eq!(pk, pk_from_hex)
