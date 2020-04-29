@@ -12,6 +12,13 @@ pub enum ConversionError {
     #[cfg_attr(feature = "std", error("Expected hex string of length 64"))]
     IncorrectHexLength,
     // This error occurs when we expect a decimal string but receive hexadecimal
-    #[cfg_attr(feature = "std", errpr("Expected decimal string, received hex"))]
+    #[cfg_attr(feature = "std", error("Expected decimal string, received hex"))]
     IncorrectDecString,
+    // This error occurs when we try to generate an Fq element from a string but it fails
+    #[cfg_attr(feature = "std", error("Failed to convert decimal string to Fq element"))]
+    ErrorIntegerFromString,
+    // This error occurs when we try to generate a point out of coordinates which do not
+    // correspond to a point in the curve
+    #[cfg_attr(feature = "std", error("Coordinates given do not correspond to point in curve"))]
+    PointNotInCurve,
 }

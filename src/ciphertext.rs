@@ -66,25 +66,39 @@ impl Ciphertext {
     /// Convert decimal string points to Ciphertext
     pub fn from_dec_string((point1, point2): ((String, String), (String, String)), pk: PublicKey)
                            -> Result<Self, ConversionError> {
-        if point1.0[0..2].to_owned() != "0x" || point1.1[0..2].to_owned() != "0x" ||
-            point2.0[0..2].to_owned() != "0x" || point2.1[0..2].to_owned() != "0x"
+
+        let point_1_x = Fq::from_str(&point1.0);
+        let point_1_y = Fq::from_str(&point1.1);
+        let point_2_x = Fq::from_str(&point2.0);
+        let point_2_y = Fq::from_str(&point2.1);
+
+        if point_1_x.is_none() || point_1_y.is_none() ||
+            point_2_x.is_none() || point_2_y.is_none()
         {
-            return Err(ConversionError::IncorrectDecString);
+            return Err(ConversionError::ErrorIntegerFromString)
         }
 
         let affine_point_1 = AffineG1::new(
-            Fq::from_str(&point1.0).unwrap(),
-            Fq::from_str(&point1.1).unwrap()
-        ).unwrap();
+            point_1_x.unwrap(),
+            point_1_y.unwrap()
+        );
 
         let affine_point_2 = AffineG1::new(
-            Fq::from_str(&point2.0).unwrap(),
-            Fq::from_str(&point2.1).unwrap()
-        ).unwrap();
+            point_2_x.unwrap(),
+            point_2_y.unwrap()
+        );
+
+        if affine_point_1.is_err() || affine_point_2.is_err()
+        {
+            return Err(ConversionError::PointNotInCurve)
+        }
 
         Ok(Ciphertext{
             pk: pk,
-            points: (G1::from(affine_point_1), G1::from(affine_point_2))
+            points: (
+                G1::from(affine_point_1.unwrap()),
+                G1::from(affine_point_2.unwrap())
+            )
         })
     }
 }
@@ -319,5 +333,21 @@ mod tests {
         let ctxt_from_hex = Ciphertext::from_hex_string(ctxt_hex, pk);
 
         assert_eq!(ctxt_from_hex.unwrap(), ctxt)
+    }
+
+    #[test]
+    fn test_from_int_conversion() {
+        let sk = SecretKey::new(&mut thread_rng());
+        let pk = PublicKey::from(&sk);
+
+        // This should work, (1, 2) is in the curve.
+        let ctxt_dec_1 = (("1".to_owned(), "2".to_owned()), ("1".to_owned(), "2".to_owned()));
+        let ctxt_from_dec_1 = Ciphertext::from_dec_string(ctxt_dec_1, pk);
+        assert!(ctxt_from_dec_1.is_ok());
+
+        // This shouldn't work, (2345123541, 1235413465) is not in the curve
+        let ctxt_dec_2 = (("2345123541".to_owned(), "1235413465".to_owned()), ("2345123541".to_owned(), "1235413465".to_owned()));
+        let ctxt_from_dec_2 = Ciphertext::from_dec_string(ctxt_dec_2, pk);
+        assert!(ctxt_from_dec_2.is_err());
     }
 }
