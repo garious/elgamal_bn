@@ -167,6 +167,13 @@ pub fn get_point_as_hex_str(point: G1) -> Result<(String, String), ConversionErr
     Ok((sol_hex_x, sol_hex_y))
 }
 
+// outputs a scalar in hex format '0x...'
+pub fn get_scalar_as_hex_str(scalar: Fr) -> Result<String, ConversionError> {
+    let hex_scalar = into_hex(scalar).ok_or(ConversionError::InvalidHexConversion)?;
+    let sol_hex_scalar = "0x".to_owned() + &hex_scalar;
+    Ok(sol_hex_scalar)
+}
+
 impl From<G1> for PublicKey {
     /// Given a secret key, compute its corresponding Public key
     fn from(point: G1) -> PublicKey {
@@ -219,7 +226,11 @@ mod tests {
         let pk_hex = pk.get_point_hex_string().unwrap();
 
         let pk_from_hex = PublicKey::from_hex_string(pk_hex).unwrap();
-        assert_eq!(pk, pk_from_hex)
+        assert_eq!(pk, pk_from_hex);
+
+        let scalar = Fr::one();
+        let scalar_hex = get_scalar_as_hex_str(scalar);
+        assert_eq!(scalar_hex.unwrap(), "0x0000000000000000000000000000000000000000000000000000000000000001");
     }
 
     #[test]
@@ -231,5 +242,4 @@ mod tests {
         let pk_from_hex = PublicKey::from_hex_string(hex_coords);
         assert!(!pk_from_hex.is_ok())
     }
-
 }

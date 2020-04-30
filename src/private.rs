@@ -10,6 +10,7 @@ use bn::{Fr, Group, G1};
 
 use crate::ciphertext::*;
 use crate::public::*;
+use crate::errors::ConversionError;
 
 /// Secret key is a scalar forming the public Key.
 #[derive(Clone)]
@@ -80,6 +81,32 @@ impl SecretKey {
 
         let response = announcement_random + challenge * self.get_scalar();
         ((announcement_base_G, announcement_base_ctxtp0), response)
+    }
+
+    /// Return the proof announcement (Point1, Poin2) \in G^2 and response r \in Zp as hexadecimal
+    /// strings (a, b, c, d, e)
+    pub fn proof_decryption_as_string(
+        &self,
+        ciphertext: &Ciphertext,
+        message: &G1
+    ) -> Result<[String; 5], ConversionError> {
+        let proof = self.prove_correct_decryption_no_Merlin(&ciphertext, &message);
+        let announcement_1 = match get_point_as_hex_str((proof.0).1) {
+            Ok(point) => point,
+            Err(e) => return Err(e)
+        };
+
+        let announcement_2 = match get_point_as_hex_str((proof.0).1) {
+            Ok(point) => point,
+            Err(e) => return Err(e)
+        };
+
+        let response = match get_scalar_as_hex_str(proof.1) {
+            Ok(point) => point,
+            Err(e) => return Err(e)
+        };
+
+        Ok([announcement_1.0, announcement_1.1, announcement_2.0, announcement_2.1, response])
     }
 }
 
