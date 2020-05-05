@@ -12,9 +12,13 @@ rand = {version = "0.5", default-features = true}
 rustc-serialize = { version = "0.3"}
 sha2 = "0.8.0"
 clear_on_drop = { version = "0.2" }
-bn = {git = "https://github.com/paritytech/bn"}
+bn = {git = "https://github.com/paritytech/bn", rev = "635c4cdd560bc0c8b262e6bf809dc709da8bcd7e"}
 rustc-hex = { version = "2", default-features = false }
 thiserror = { version = "1", optional = true }
+sha3 = "0.8.2"
+ethabi = "12.0.0"
+
+multihash = "0.10.1"
 
 [dependencies.bincode]
 version = "0.6"

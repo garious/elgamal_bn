@@ -1,9 +1,8 @@
 use bn::{Fr, Group, G1, AffineG1, Fq};
-use core::ops::{Add, Div, Mul, Sub};
+use core::ops::{Add, Mul, Sub};
 
 use crate::public::*;
 use crate::errors::ConversionError;
-use std::error::Error;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Ciphertext {
@@ -22,15 +21,9 @@ impl Ciphertext {
     pub fn get_points_hex_string(self) -> Result<((String, String), (String, String)), ConversionError> {
         let (point_1, point_2) = self.get_points();
 
-        let point_1_hex = match get_point_as_hex_str(point_1) {
-            Ok(point) => point,
-            Err(e) => return Err(e)
-        } ;
+        let point_1_hex = get_point_as_hex_str(point_1)?;
 
-        let point_2_hex = match get_point_as_hex_str(point_2) {
-            Ok(point) => point,
-            Err(e) => return Err(e)
-        } ;
+        let point_2_hex = get_point_as_hex_str(point_2)?;
 
         return Ok((
             point_1_hex, point_2_hex
@@ -59,15 +52,9 @@ impl Ciphertext {
 
         let point1_hex = "04".to_owned() + &point1.0[2..] + &point1.1[2..];
         let point2_hex = "04".to_owned() + &point2.0[2..] + &point2.1[2..];
-        let point1: G1 = match from_hex(&point1_hex) {
-            Ok(point) => point,
-            Err(e) => return Err(ConversionError::PointNotInCurve)
-        };
+        let point1: G1 = from_hex(&point1_hex)?;
 
-        let point2: G1 = match from_hex(&point2_hex) {
-            Ok(point) => point,
-            Err(e) => return Err(ConversionError::PointNotInCurve)
-        };
+        let point2: G1 = from_hex(&point2_hex)?;
 
         Ok(Ciphertext{pk: pk, points: (point1, point2)})
     }
@@ -81,21 +68,15 @@ impl Ciphertext {
         let point_2_x = Fq::from_str(&point2.0);
         let point_2_y = Fq::from_str(&point2.1);
 
-        let affine_point_1 = match AffineG1::new(
+        let affine_point_1 = AffineG1::new(
             point_1_x.ok_or(ConversionError::ErrorIntegerFromString)?,
             point_1_y.ok_or(ConversionError::ErrorIntegerFromString)?
-        ) {
-            Ok(affine_point_1) => affine_point_1,
-            Err(e) => return Err(ConversionError::PointNotInCurve)
-        };
+        )?;
 
-        let affine_point_2 = match AffineG1::new(
+        let affine_point_2 = AffineG1::new(
             point_2_x.ok_or(ConversionError::ErrorIntegerFromString)?,
             point_2_y.ok_or(ConversionError::ErrorIntegerFromString)?
-        ) {
-            Ok(affine_point_2) => affine_point_2,
-            Err(e) => return Err(ConversionError::PointNotInCurve)
-        };
+        )?;
 
         Ok(Ciphertext{
             pk: pk,
@@ -209,7 +190,6 @@ mod tests {
     use super::*;
     use crate::private::SecretKey;
     use rand::thread_rng;
-    use bn::Fq;
 
     #[test]
     fn test_homomorphic_addition() {

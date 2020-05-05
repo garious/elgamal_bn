@@ -2,6 +2,7 @@
 use thiserror::Error;
 use rustc_serialize::hex::FromHexError;
 use bincode::rustc_serialize::DecodingError;
+use bn::GroupError;
 
 /// Represents an error in hex parsing.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -45,8 +46,30 @@ pub enum ConversionError {
     /// If decoding a message takes more than the provided size limit, this
     /// error is returned.
     #[cfg_attr(feature = "std", error("Decoding message takes more than the provided size limit"))]
-    SizeLimit
+    SizeLimit,
+    /// This error happens when a none value is return when converting jacobian coordinates to an
+    /// affine points
+    #[cfg_attr(feature = "std", error("Affine conversion failed"))]
+    AffineConversionFailure
 
+}
+
+/// Represents an error in proof creation, verification, or parsing.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProofError {
+    /// This error occurs when a proof failed to verify.
+    #[cfg_attr(feature = "std", error = "Proof verification failed.")]
+    VerificationError,
+
+    /// This error occurs when a proof fails to verify due to a conversion error
+    #[cfg_attr(feature = "std", error = "Proof verification failed due to conversion error.")]
+    ConversionVerificationError,
+}
+
+impl From<ConversionError> for ProofError {
+    fn from (_e: ConversionError) -> ProofError {
+        return ProofError::ConversionVerificationError
+    }
 }
 
 impl From<FromHexError> for ConversionError {
@@ -65,6 +88,15 @@ impl From<DecodingError> for ConversionError {
             DecodingError::IoError(_) => ConversionError::IoError,
             DecodingError::InvalidEncoding(_) => ConversionError::InvalidEncoding,
             DecodingError::SizeLimit => ConversionError::SizeLimit,
+        }
+    }
+}
+
+impl From<bn::GroupError> for ConversionError {
+    fn from(e: GroupError) -> ConversionError {
+        match e {
+            GroupError::NotOnCurve => ConversionError::PointNotInCurve,
+            GroupError::NotInSubgroup => ConversionError::PointNotInCurve,
         }
     }
 }

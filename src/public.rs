@@ -5,17 +5,16 @@ extern crate bincode;
 extern crate rustc_serialize;
 
 use bn::*;
-use crate::errors::ConversionError;
+use crate::errors::{ConversionError, ProofError};
 
 use rand::thread_rng;
-use sha2::{Digest, Sha512};
+use sha3::{Digest, Keccak256};
 
 use crate::ciphertext::*;
 use bincode::SizeLimit::Infinite;
 use bincode::rustc_serialize::{encode, decode};
 use rustc_serialize::{Encodable, Decodable};
 use rustc_serialize::hex::{FromHex, ToHex};
-use self::rustc_serialize::hex::FromHexError;
 
 
 /// The `PublicKey` struct represents an ElGamal public key.
@@ -66,7 +65,7 @@ impl PublicKey {
 
         let random_generator = G1::one() * random;
         let encrypted_plaintext = *message + self.0 * random;
-        // random.clear(); todo:no clearing with Fr
+        // random.clear(); todo: no clearing with Fr
         Ciphertext {
             pk: self,
             points: (random_generator, encrypted_plaintext),
@@ -110,9 +109,9 @@ impl PublicKey {
     ///    let ciphertext = pk.encrypt(&plaintext);
     ///
     ///    let decryption = sk.decrypt(&ciphertext);
-    ///    let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &decryption);
+    ///    let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &decryption).unwrap();
     ///
-    ///    assert!(pk.verify_correct_decryption_no_Merlin(proof, ciphertext, decryption));
+    ///    assert!(pk.verify_correct_decryption_no_Merlin(proof, ciphertext, decryption).is_ok());
     /// # }
     /// ```
     pub fn verify_correct_decryption_no_Merlin(
@@ -120,24 +119,35 @@ impl PublicKey {
         proof: ((G1, G1), Fr),
         ciphertext: Ciphertext,
         message: G1,
-    ) -> bool {
+    ) -> Result<(), ProofError> {
         let ((announcement_base_G, announcement_base_ctxtp0), response) = proof;
-        let hash = Sha512::new()
-            .chain(encode(&message, Infinite).unwrap())
-            .chain(encode(&ciphertext.points.0, Infinite).unwrap())
-            .chain(encode(&ciphertext.points.1, Infinite).unwrap())
-            .chain(encode(&announcement_base_G, Infinite).unwrap())
-            .chain(encode(&announcement_base_ctxtp0, Infinite).unwrap())
-            .chain(encode(&G1::one(), Infinite).unwrap())
-            .chain(encode(&self.get_point(), Infinite).unwrap());
 
-        let mut output = [0u8; 64];
-        output.copy_from_slice(hash.result().as_slice());
-        let challenge = Fr::interpret(&output);
+        let message_affine = AffineG1::from_jacobian(message.clone()).ok_or(ConversionError::AffineConversionFailure)?;
+        let ctx1_affine = AffineG1::from_jacobian(ciphertext.points.0).ok_or(ConversionError::AffineConversionFailure)?;
+        let ctx2_affine = AffineG1::from_jacobian(ciphertext.points.1).ok_or(ConversionError::AffineConversionFailure)?;
+        let announcement_g_affine = AffineG1::from_jacobian(announcement_base_G).ok_or(ConversionError::AffineConversionFailure)?;
+        let announcement_ctxt0_affine = AffineG1::from_jacobian(announcement_base_ctxtp0).ok_or(ConversionError::AffineConversionFailure)?;
+        let generator_affine = AffineG1::from_jacobian(G1::one()).ok_or(ConversionError::AffineConversionFailure)?;
+        let pk_affine = AffineG1::from_jacobian(self.get_point()).ok_or(ConversionError::AffineConversionFailure)?;
 
-        G1::one() * response == announcement_base_G + self.get_point() * challenge
+        let hash = Keccak256::new()
+            .chain(encode(&message_affine, Infinite).unwrap())
+            .chain(encode(&ctx1_affine, Infinite).unwrap())
+            .chain(encode(&ctx2_affine, Infinite).unwrap())
+            .chain(encode(&announcement_g_affine, Infinite).unwrap())
+            .chain(encode(&announcement_ctxt0_affine, Infinite).unwrap())
+            .chain(encode(&generator_affine, Infinite).unwrap())
+            .chain(encode(&pk_affine, Infinite).unwrap())
+        ;
+
+        let challenge = Fr::from_slice(&hash.result()[..]).unwrap();
+
+        if !(G1::one() * response == announcement_base_G + self.get_point() * challenge
             && ciphertext.points.0 * response
-                == announcement_base_ctxtp0 + (ciphertext.points.1 - message) * challenge
+                == announcement_base_ctxtp0 + (ciphertext.points.1 - message) * challenge) {
+            return Err(ProofError::VerificationError);
+        }
+        Ok(())
     }
 
     pub fn from_hex_string(hex_coords: (String, String)) -> Result<Self, ConversionError> {
@@ -169,6 +179,12 @@ pub fn get_point_as_hex_str(point: G1) -> Result<(String, String), ConversionErr
 
 // outputs a scalar in hex format '0x...'
 pub fn get_scalar_as_hex_str(scalar: Fr) -> Result<String, ConversionError> {
+    let hex_scalar = into_hex(scalar).ok_or(ConversionError::InvalidHexConversion)?;
+    let sol_hex_scalar = "0x".to_owned() + &hex_scalar;
+    Ok(sol_hex_scalar)
+}
+
+pub fn get_fq_as_hex_str(scalar: Fq) -> Result<String, ConversionError> {
     let hex_scalar = into_hex(scalar).ok_or(ConversionError::InvalidHexConversion)?;
     let sol_hex_scalar = "0x".to_owned() + &hex_scalar;
     Ok(sol_hex_scalar)

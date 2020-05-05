@@ -4,9 +4,9 @@ use rand::{thread_rng, Rng};
 use bincode;
 use bincode::rustc_serialize::encode;
 use bincode::SizeLimit::Infinite;
-use sha2::{Digest, Sha512};
+use sha3::{Digest, Keccak256};
 
-use bn::{Fr, Group, G1};
+use bn::{Fr, Group, G1, AffineG1};
 
 use crate::ciphertext::*;
 use crate::public::*;
@@ -59,29 +59,43 @@ impl SecretKey {
         &self,
         ciphertext: &Ciphertext,
         message: &G1,
-    ) -> ((G1, G1), Fr) {
+    ) -> Result<((G1, G1), Fr), ConversionError> {
         let mut rng = thread_rng();
         let pk = PublicKey::from(self);
         let announcement_random = Fr::random(&mut rng);
         let announcement_base_G = G1::one() * announcement_random;
         let announcement_base_ctxtp0 = ciphertext.points.0 * announcement_random;
 
-        let hash = Sha512::new()
-            .chain(encode(message, Infinite).unwrap())
-            .chain(encode(&ciphertext.points.0, Infinite).unwrap())
-            .chain(encode(&ciphertext.points.1, Infinite).unwrap())
-            .chain(encode(&announcement_base_G, Infinite).unwrap())
-            .chain(encode(&announcement_base_ctxtp0, Infinite).unwrap())
-            .chain(encode(&G1::one(), Infinite).unwrap())
-            .chain(encode(&pk.get_point(), Infinite).unwrap());
+        // We first need to get the points in affine form, as that is the way we manage to
+        // get the right relation with solidity
+        // todo: undertsand why this happends, and determine if we can skip this step. Else,
+        // find a more rusty way of doing this.
+        let message_affine = AffineG1::from_jacobian(message.clone()).ok_or(ConversionError::AffineConversionFailure)?;
+        let ctx1_affine = AffineG1::from_jacobian(ciphertext.points.0).ok_or(ConversionError::AffineConversionFailure)?;
+        let ctx2_affine = AffineG1::from_jacobian(ciphertext.points.1).ok_or(ConversionError::AffineConversionFailure)?;
+        let announcement_g_affine = AffineG1::from_jacobian(announcement_base_G).ok_or(ConversionError::AffineConversionFailure)?;
+        let announcement_ctxt0_affine = AffineG1::from_jacobian(announcement_base_ctxtp0).ok_or(ConversionError::AffineConversionFailure)?;
+        let generator_affine = AffineG1::from_jacobian(G1::one()).ok_or(ConversionError::AffineConversionFailure)?;
+        let pk_affine = AffineG1::from_jacobian(pk.get_point()).ok_or(ConversionError::AffineConversionFailure)?;
 
-        let mut output = [0u8; 64];
-        output.copy_from_slice(hash.result().as_slice());
-        let challenge = Fr::interpret(&output);
+        let hash = Keccak256::new()
+            .chain(encode(&message_affine, Infinite).unwrap())
+            .chain(encode(&ctx1_affine, Infinite).unwrap())
+            .chain(encode(&ctx2_affine, Infinite).unwrap())
+            .chain(encode(&announcement_g_affine, Infinite).unwrap())
+            .chain(encode(&announcement_ctxt0_affine, Infinite).unwrap())
+            .chain(encode(&generator_affine, Infinite).unwrap())
+            .chain(encode(&pk_affine, Infinite).unwrap())
+        ;
+        let challenge = Fr::from_slice(&hash.result()[..]).unwrap();
 
         let response = announcement_random + challenge * self.get_scalar();
-        ((announcement_base_G, announcement_base_ctxtp0), response)
+        Ok(((announcement_base_G, announcement_base_ctxtp0), response))
     }
+
+    // fn hash_vector_points(input: &Vec<G1>) {
+    //
+    // }
 
     /// Return the proof announcement (Point1, Poin2) \in G^2 and response r \in Zp as hexadecimal
     /// strings (a, b, c, d, e)
@@ -89,9 +103,13 @@ impl SecretKey {
         &self,
         ciphertext: &Ciphertext,
         message: &G1
-    ) -> Result<[String; 5], ConversionError> {
-        let proof = self.prove_correct_decryption_no_Merlin(&ciphertext, &message);
-        let announcement_1 = match get_point_as_hex_str((proof.0).1) {
+    ) -> Result<[String; 7], ConversionError> {
+        let message_str = get_point_as_hex_str(message.clone())?;
+        let proof = match self.prove_correct_decryption_no_Merlin(&ciphertext, &message) {
+            Ok(proof) => proof,
+            Err(e) => return Err(e)
+        };
+        let announcement_1 = match get_point_as_hex_str((proof.0).0) {
             Ok(point) => point,
             Err(e) => return Err(e)
         };
@@ -106,7 +124,7 @@ impl SecretKey {
             Err(e) => return Err(e)
         };
 
-        Ok([announcement_1.0, announcement_1.1, announcement_2.0, announcement_2.1, response])
+        Ok([message_str.0, message_str.1, announcement_1.0, announcement_1.1, announcement_2.0, announcement_2.1, response])
     }
 }
 
@@ -151,9 +169,9 @@ mod tests {
         let ciphertext = pk.encrypt(&plaintext);
 
         let decryption = sk.decrypt(&ciphertext);
-        let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &decryption);
+        let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &decryption).unwrap();
 
-        assert!(pk.verify_correct_decryption_no_Merlin(proof, ciphertext, decryption));
+        assert!(pk.verify_correct_decryption_no_Merlin(proof, ciphertext, decryption).is_ok());
     }
 
     #[test]
@@ -166,8 +184,8 @@ mod tests {
         let ciphertext = pk.encrypt(&plaintext);
 
         let fake_decryption = G1::random(&mut csprng);
-        let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &fake_decryption);
+        let proof = sk.prove_correct_decryption_no_Merlin(&ciphertext, &fake_decryption).unwrap();
 
-        assert!(!pk.verify_correct_decryption_no_Merlin(proof, ciphertext, fake_decryption));
+        assert!(pk.verify_correct_decryption_no_Merlin(proof, ciphertext, fake_decryption).is_err());
     }
 }
