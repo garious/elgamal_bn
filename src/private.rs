@@ -12,17 +12,12 @@ use crate::ciphertext::*;
 use crate::public::*;
 use crate::errors::ConversionError;
 
+
 /// Secret key is a scalar forming the public Key.
+/// todo: consider the crate Zeroize for dropping the secret key when it goes out of scope.
+/// now, the above does not work, as Zeroize is not implemented for Fr.
 #[derive(Clone)]
 pub struct SecretKey(Fr);
-
-// todo: this is important
-// /// Overwrite secret key material with null bytes.
-// impl Drop for SecretKey {
-//     fn drop(&mut self) {
-//         self.0.clear();
-//     }
-// }
 
 impl PartialEq for SecretKey {
     fn eq(&self, other: &Self) -> bool {
@@ -66,17 +61,14 @@ impl SecretKey {
         let announcement_base_G = G1::one() * announcement_random;
         let announcement_base_ctxtp0 = ciphertext.points.0 * announcement_random;
 
-        // We first need to get the points in affine form, as that is the way we manage to
-        // get the right relation with solidity
-        // todo: undertsand why this happends, and determine if we can skip this step. Else,
-        // find a more rusty way of doing this.
-        let message_affine = AffineG1::from_jacobian(message.clone()).ok_or(ConversionError::AffineConversionFailure)?;
-        let ctx1_affine = AffineG1::from_jacobian(ciphertext.points.0).ok_or(ConversionError::AffineConversionFailure)?;
-        let ctx2_affine = AffineG1::from_jacobian(ciphertext.points.1).ok_or(ConversionError::AffineConversionFailure)?;
-        let announcement_g_affine = AffineG1::from_jacobian(announcement_base_G).ok_or(ConversionError::AffineConversionFailure)?;
-        let announcement_ctxt0_affine = AffineG1::from_jacobian(announcement_base_ctxtp0).ok_or(ConversionError::AffineConversionFailure)?;
-        let generator_affine = AffineG1::from_jacobian(G1::one()).ok_or(ConversionError::AffineConversionFailure)?;
-        let pk_affine = AffineG1::from_jacobian(pk.get_point()).ok_or(ConversionError::AffineConversionFailure)?;
+        // We first need to get the points in affine form
+        let message_affine = jacobian_to_affine(&message)?;
+        let ctx1_affine = jacobian_to_affine(&ciphertext.points.0)?;
+        let ctx2_affine = jacobian_to_affine(&ciphertext.points.1)?;
+        let announcement_g_affine = jacobian_to_affine(&announcement_base_G)?;
+        let announcement_ctxt0_affine = jacobian_to_affine(&announcement_base_ctxtp0)?;
+        let generator_affine = jacobian_to_affine(&G1::one())?;
+        let pk_affine = jacobian_to_affine(&pk.get_point())?;
 
         let hash = Keccak256::new()
             .chain(encode(&message_affine, Infinite).unwrap())
@@ -92,10 +84,6 @@ impl SecretKey {
         let response = announcement_random + challenge * self.get_scalar();
         Ok(((announcement_base_G, announcement_base_ctxtp0), response))
     }
-
-    // fn hash_vector_points(input: &Vec<G1>) {
-    //
-    // }
 
     /// Return the proof announcement (Point1, Poin2) \in G^2 and response r \in Zp as hexadecimal
     /// strings (a, b, c, d, e)
@@ -139,6 +127,11 @@ impl<'a> From<&'a SecretKey> for PublicKey {
     fn from(secret: &'a SecretKey) -> PublicKey {
         PublicKey::from(G1::one() * secret.0)
     }
+}
+
+fn jacobian_to_affine(point: &G1) -> Result<AffineG1, ConversionError> {
+    AffineG1::from_jacobian(point.clone())
+        .ok_or(ConversionError::AffineConversionFailure)
 }
 
 #[cfg(test)]

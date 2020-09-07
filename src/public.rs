@@ -60,12 +60,10 @@ impl PublicKey {
     /// ```
     pub fn encrypt(self, message: &G1) -> Ciphertext {
         let rng = &mut thread_rng();
-        // todo: version of rand crate is pretty old for this to work.
         let random: Fr = Fr::random(rng);
 
         let random_generator = G1::one() * random;
         let encrypted_plaintext = *message + self.0 * random;
-        // random.clear(); todo: no clearing with Fr
         Ciphertext {
             pk: self,
             points: (random_generator, encrypted_plaintext),
@@ -155,7 +153,6 @@ impl PublicKey {
             return Err(ConversionError::IncorrectHexString);
         }
 
-        // todo: probably change this to a padding instead
         if hex_coords.0.len() != 66 || hex_coords.1.len() != 66 {
             return Err(ConversionError::InvalidHexLength);
         }

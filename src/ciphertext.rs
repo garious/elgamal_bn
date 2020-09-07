@@ -31,9 +31,6 @@ impl Ciphertext {
     }
 
     /// Convert hexadecimal points to Ciphertext
-    /// todo: probably having the stsructure of a ciphertext with the public key is not optimal
-    /// the reason of the above is to avoid performing homomorphic operations with ciphertexts
-    /// encrypted with different keys.
     pub fn from_hex_string((point1, point2): ((String, String), (String, String)), pk: PublicKey)
         -> Result<Self, ConversionError> {
 
@@ -43,7 +40,6 @@ impl Ciphertext {
             return Err(ConversionError::IncorrectHexString);
         }
 
-        // todo: probably change this to a padding instead
         if point1.0.len() != 66 || point1.1.len() != 66 ||
             point1.0.len() != 66 || point1.1.len() != 66
         {
