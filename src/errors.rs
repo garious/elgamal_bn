@@ -68,7 +68,7 @@ pub enum ProofError {
 
 impl From<ConversionError> for ProofError {
     fn from (_e: ConversionError) -> ProofError {
-        return ProofError::ConversionVerificationError
+        ProofError::ConversionVerificationError
     }
 }
 
