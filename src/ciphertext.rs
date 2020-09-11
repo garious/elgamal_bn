@@ -1,4 +1,4 @@
-use bn::{Fr, Group, G1, AffineG1, Fq};
+use bn::{Fr, G1, AffineG1, Fq};
 use core::ops::{Add, Mul, Sub};
 
 use crate::public::*;
@@ -10,32 +10,34 @@ pub struct Ciphertext {
     pub points: (G1, G1),
 }
 
+type PointStr = (String, String);
+
 impl Ciphertext {
     /// Get the points of the ciphertext
     pub fn get_points(self) -> (G1, G1) {
-        return (self.points.0, self.points.1);
+        (self.points.0, self.points.1)
     }
 
     /// Get the points of the ciphertext as hexadecimal strings. It returns in the form
     /// `((x_point_1, y_point_1), (x_point_2, y_point_2))`
-    pub fn get_points_hex_string(self) -> Result<((String, String), (String, String)), ConversionError> {
+    pub fn get_points_hex_string(self) -> Result<(PointStr, PointStr), ConversionError> {
         let (point_1, point_2) = self.get_points();
 
         let point_1_hex = get_point_as_hex_str(point_1)?;
 
         let point_2_hex = get_point_as_hex_str(point_2)?;
 
-        return Ok((
+        Ok((
             point_1_hex, point_2_hex
             ))
     }
 
     /// Convert hexadecimal points to Ciphertext
-    pub fn from_hex_string((point1, point2): ((String, String), (String, String)), pk: PublicKey)
+    pub fn from_hex_string((point1, point2): (PointStr, PointStr), pk: PublicKey)
         -> Result<Self, ConversionError> {
 
-        if point1.0[0..2].to_owned() != "0x" || point1.1[0..2].to_owned() != "0x" ||
-            point2.0[0..2].to_owned() != "0x" || point2.1[0..2].to_owned() != "0x"
+        if &point1.0[0..2] != "0x" || &point1.1[0..2] != "0x" ||
+            &point2.0[0..2] != "0x" || &point2.1[0..2] != "0x"
         {
             return Err(ConversionError::IncorrectHexString);
         }
@@ -52,11 +54,11 @@ impl Ciphertext {
 
         let point2: G1 = from_hex(&point2_hex)?;
 
-        Ok(Ciphertext{pk: pk, points: (point1, point2)})
+        Ok(Ciphertext{pk, points: (point1, point2)})
     }
 
     /// Convert decimal string points to Ciphertext
-    pub fn from_dec_string((point1, point2): ((String, String), (String, String)), pk: PublicKey)
+    pub fn from_dec_string((point1, point2): (PointStr, PointStr), pk: PublicKey)
                            -> Result<Self, ConversionError> {
 
         let point_1_x = Fq::from_str(&point1.0);
@@ -75,7 +77,7 @@ impl Ciphertext {
         )?;
 
         Ok(Ciphertext{
-            pk: pk,
+            pk,
             points: (
                 G1::from(affine_point_1),
                 G1::from(affine_point_2)
@@ -184,6 +186,7 @@ impl Mul<Fr> for Ciphertext {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bn::Group;
     use crate::private::SecretKey;
     use rand::thread_rng;
 

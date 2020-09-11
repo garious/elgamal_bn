@@ -120,7 +120,7 @@ impl PublicKey {
     ) -> Result<(), ProofError> {
         let ((announcement_base_G, announcement_base_ctxtp0), response) = proof;
 
-        let message_affine = AffineG1::from_jacobian(message.clone()).ok_or(ConversionError::AffineConversionFailure)?;
+        let message_affine = AffineG1::from_jacobian(message).ok_or(ConversionError::AffineConversionFailure)?;
         let ctx1_affine = AffineG1::from_jacobian(ciphertext.points.0).ok_or(ConversionError::AffineConversionFailure)?;
         let ctx2_affine = AffineG1::from_jacobian(ciphertext.points.1).ok_or(ConversionError::AffineConversionFailure)?;
         let announcement_g_affine = AffineG1::from_jacobian(announcement_base_G).ok_or(ConversionError::AffineConversionFailure)?;
@@ -149,7 +149,7 @@ impl PublicKey {
     }
 
     pub fn from_hex_string(hex_coords: (String, String)) -> Result<Self, ConversionError> {
-        if hex_coords.0[0..2].to_owned() != "0x" || hex_coords.1[0..2].to_owned() != "0x" {
+        if &hex_coords.0[0..2] != "0x" || &hex_coords.1[0..2] != "0x" {
             return Err(ConversionError::IncorrectHexString);
         }
 
@@ -160,7 +160,7 @@ impl PublicKey {
         let combined_string = "04".to_owned() + &hex_coords.0[2..] + &hex_coords.1[2..];
         let pk_point: G1 = match from_hex(&combined_string) {
             Ok(point) => point,
-            Err(e) => return Err(ConversionError::from(e)),
+            Err(e) => return Err(e),
         };
         Ok(PublicKey::from(pk_point))
     }

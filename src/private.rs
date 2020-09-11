@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 use rand::{thread_rng, Rng};
 
-use bincode;
 use bincode::rustc_serialize::encode;
 use bincode::SizeLimit::Infinite;
 use sha3::{Digest, Keccak256};
@@ -92,7 +91,7 @@ impl SecretKey {
         ciphertext: &Ciphertext,
         message: &G1
     ) -> Result<[String; 7], ConversionError> {
-        let message_str = get_point_as_hex_str(message.clone())?;
+        let message_str = get_point_as_hex_str(*message)?;
         let proof = match self.prove_correct_decryption_no_Merlin(&ciphertext, &message) {
             Ok(proof) => proof,
             Err(e) => return Err(e)
@@ -130,7 +129,7 @@ impl<'a> From<&'a SecretKey> for PublicKey {
 }
 
 fn jacobian_to_affine(point: &G1) -> Result<AffineG1, ConversionError> {
-    AffineG1::from_jacobian(point.clone())
+    AffineG1::from_jacobian(*point)
         .ok_or(ConversionError::AffineConversionFailure)
 }
 
