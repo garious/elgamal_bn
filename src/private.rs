@@ -92,25 +92,10 @@ impl SecretKey {
         message: &G1
     ) -> Result<[String; 7], ConversionError> {
         let message_str = get_point_as_hex_str(*message)?;
-        let proof = match self.prove_correct_decryption_no_Merlin(&ciphertext, &message) {
-            Ok(proof) => proof,
-            Err(e) => return Err(e)
-        };
-        let announcement_1 = match get_point_as_hex_str((proof.0).0) {
-            Ok(point) => point,
-            Err(e) => return Err(e)
-        };
-
-        let announcement_2 = match get_point_as_hex_str((proof.0).1) {
-            Ok(point) => point,
-            Err(e) => return Err(e)
-        };
-
-        let response = match get_scalar_as_hex_str(proof.1) {
-            Ok(point) => point,
-            Err(e) => return Err(e)
-        };
-
+        let (point, scalar) = self.prove_correct_decryption_no_Merlin(&ciphertext, &message)?;
+        let announcement_1 = get_point_as_hex_str(point.0)?;
+        let announcement_2 = get_point_as_hex_str(point.1)?;
+        let response = get_scalar_as_hex_str(scalar)?;
         Ok([message_str.0, message_str.1, announcement_1.0, announcement_1.1, announcement_2.0, announcement_2.1, response])
     }
 }
