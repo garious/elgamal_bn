@@ -82,10 +82,7 @@ impl PublicKey {
 
     /// Get the public key point as a string
     pub fn get_point_hex_string(&self) -> Result<(String, String), ConversionError> {
-        Ok(match get_point_as_hex_str(self.0) {
-            Ok(hex_pair) => hex_pair,
-            Err(e) => return Err(e)
-        })
+        get_point_as_hex_str(self.0)
     }
 
     /// This function is only defined for testing purposes for the
@@ -158,10 +155,7 @@ impl PublicKey {
         }
 
         let combined_string = "04".to_owned() + &hex_coords.0[2..] + &hex_coords.1[2..];
-        let pk_point: G1 = match from_hex(&combined_string) {
-            Ok(point) => point,
-            Err(e) => return Err(e),
-        };
+        let pk_point: G1 = from_hex(&combined_string)?;
         Ok(PublicKey::from(pk_point))
     }
 }
@@ -205,17 +199,9 @@ pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
 }
 
 pub fn from_hex<S: Decodable>(s: &str) -> Result<S, ConversionError> {
-    let s = match s.from_hex(){
-        Ok(hex_string) => hex_string,
-        Err(e) => return Err(ConversionError::from(e)),
-    };
-
-    let decodable = match decode(&s) {
-        Ok(decodable) => decodable,
-        Err(e) => return Err(ConversionError::from(e))
-    };
-
-    Ok(decodable)
+    let s = s.from_hex()?;
+    let d = decode(&s)?;
+    Ok(d)
 }
 
 #[cfg(test)]
