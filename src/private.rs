@@ -83,21 +83,6 @@ impl SecretKey {
         let response = announcement_random + challenge * self.get_scalar();
         Ok(((announcement_base_G, announcement_base_ctxtp0), response))
     }
-
-    /// Return the proof announcement (Point1, Poin2) \in G^2 and response r \in Zp as hexadecimal
-    /// strings (a, b, c, d, e)
-    pub fn proof_decryption_as_string(
-        &self,
-        ciphertext: &Ciphertext,
-        message: &G1
-    ) -> Result<[String; 7], ConversionError> {
-        let message_str = get_point_as_hex_str(*message)?;
-        let (point, scalar) = self.prove_correct_decryption_no_Merlin(&ciphertext, &message)?;
-        let announcement_1 = get_point_as_hex_str(point.0)?;
-        let announcement_2 = get_point_as_hex_str(point.1)?;
-        let response = get_scalar_as_hex_str(scalar)?;
-        Ok([message_str.0, message_str.1, announcement_1.0, announcement_1.1, announcement_2.0, announcement_2.1, response])
-    }
 }
 
 impl From<Fr> for SecretKey {

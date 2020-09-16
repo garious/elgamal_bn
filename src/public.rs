@@ -11,10 +11,7 @@ use rand::thread_rng;
 use sha3::{Digest, Keccak256};
 
 use crate::ciphertext::*;
-use bincode::SizeLimit::Infinite;
-use bincode::rustc_serialize::{encode, decode};
-use rustc_serialize::{Encodable, Decodable};
-use rustc_serialize::hex::{FromHex, ToHex};
+use bincode::{SizeLimit::Infinite, rustc_serialize::encode};
 
 
 /// The `PublicKey` struct represents an ElGamal public key.
@@ -80,11 +77,6 @@ impl PublicKey {
         AffineG1::from_jacobian(self.0).unwrap()
     }
 
-    /// Get the public key point as a string
-    pub fn get_point_hex_string(&self) -> Result<(String, String), ConversionError> {
-        get_point_as_hex_str(self.0)
-    }
-
     /// This function is only defined for testing purposes for the
     /// `prove_correct_decryption_no_Merlin`. Verification should
     /// happen in `Solidity`.
@@ -144,41 +136,6 @@ impl PublicKey {
         }
         Ok(())
     }
-
-    pub fn from_hex_string(hex_coords: (String, String)) -> Result<Self, ConversionError> {
-        if &hex_coords.0[0..2] != "0x" || &hex_coords.1[0..2] != "0x" {
-            return Err(ConversionError::IncorrectHexString);
-        }
-
-        if hex_coords.0.len() != 66 || hex_coords.1.len() != 66 {
-            return Err(ConversionError::InvalidHexLength);
-        }
-
-        let combined_string = "04".to_owned() + &hex_coords.0[2..] + &hex_coords.1[2..];
-        let pk_point: G1 = from_hex(&combined_string)?;
-        Ok(PublicKey::from(pk_point))
-    }
-}
-
-// outputs a point in hex format '0x...'
-pub fn get_point_as_hex_str(point: G1) -> Result<(String, String), ConversionError> {
-    let hex_point = into_hex(point).ok_or(ConversionError::InvalidHexConversion)?;
-    let sol_hex_x = "0x".to_owned() + &hex_point[2..66];
-    let sol_hex_y = "0x".to_owned() + &hex_point[66..];
-    Ok((sol_hex_x, sol_hex_y))
-}
-
-// outputs a scalar in hex format '0x...'
-pub fn get_scalar_as_hex_str(scalar: Fr) -> Result<String, ConversionError> {
-    let hex_scalar = into_hex(scalar).ok_or(ConversionError::InvalidHexConversion)?;
-    let sol_hex_scalar = "0x".to_owned() + &hex_scalar;
-    Ok(sol_hex_scalar)
-}
-
-pub fn get_fq_as_hex_str(scalar: Fq) -> Result<String, ConversionError> {
-    let hex_scalar = into_hex(scalar).ok_or(ConversionError::InvalidHexConversion)?;
-    let sol_hex_scalar = "0x".to_owned() + &hex_scalar;
-    Ok(sol_hex_scalar)
 }
 
 impl From<G1> for PublicKey {
@@ -191,54 +148,5 @@ impl From<G1> for PublicKey {
 impl PartialEq for PublicKey {
     fn eq(&self, other: &PublicKey) -> bool {
         self.0 == other.0
-    }
-}
-
-pub fn into_hex<S: Encodable>(obj: S) -> Option<String> {
-    encode(&obj, Infinite).ok().map(|e| e.to_hex())
-}
-
-pub fn from_hex<S: Decodable>(s: &str) -> Result<S, ConversionError> {
-    let s = s.from_hex()?;
-    let d = decode(&s)?;
-    Ok(d)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rand::thread_rng;
-    use crate::private::SecretKey;
-
-    #[test]
-    fn test_hex_string_conversion() {
-        let pk = PublicKey::from(G1::one() + G1::one());
-        let pk_string = pk.get_point_hex_string().unwrap();
-        assert_eq!(pk_string.0, "0x030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3");
-        assert_eq!(pk_string.1, "0x15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4");
-    }
-
-    #[test]
-    fn test_from_hex_conversion() {
-        let sk = SecretKey::new(&mut thread_rng());
-        let pk = PublicKey::from(&sk);
-        let pk_hex = pk.get_point_hex_string().unwrap();
-
-        let pk_from_hex = PublicKey::from_hex_string(pk_hex).unwrap();
-        assert_eq!(pk, pk_from_hex);
-
-        let scalar = Fr::one();
-        let scalar_hex = get_scalar_as_hex_str(scalar);
-        assert_eq!(scalar_hex.unwrap(), "0x0000000000000000000000000000000000000000000000000000000000000001");
-    }
-
-    #[test]
-    fn test_failure_from_hex_conversion() {
-        let hex_coords: (String, String) = (
-            "030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3".to_owned(),
-            "0x15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4".to_owned()
-        );
-        let pk_from_hex = PublicKey::from_hex_string(hex_coords);
-        assert!(!pk_from_hex.is_ok())
     }
 }
