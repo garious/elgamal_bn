@@ -18,45 +18,6 @@ impl Ciphertext {
         (self.points.0, self.points.1)
     }
 
-    /// Get the points of the ciphertext as hexadecimal strings. It returns in the form
-    /// `((x_point_1, y_point_1), (x_point_2, y_point_2))`
-    pub fn get_points_hex_string(self) -> Result<(PointStr, PointStr), ConversionError> {
-        let (point_1, point_2) = self.get_points();
-
-        let point_1_hex = get_point_as_hex_str(point_1)?;
-
-        let point_2_hex = get_point_as_hex_str(point_2)?;
-
-        Ok((
-            point_1_hex, point_2_hex
-            ))
-    }
-
-    /// Convert hexadecimal points to Ciphertext
-    pub fn from_hex_string((point1, point2): (PointStr, PointStr), pk: PublicKey)
-        -> Result<Self, ConversionError> {
-
-        if &point1.0[0..2] != "0x" || &point1.1[0..2] != "0x" ||
-            &point2.0[0..2] != "0x" || &point2.1[0..2] != "0x"
-        {
-            return Err(ConversionError::IncorrectHexString);
-        }
-
-        if point1.0.len() != 66 || point1.1.len() != 66 ||
-            point1.0.len() != 66 || point1.1.len() != 66
-        {
-            return Err(ConversionError::InvalidHexLength);
-        }
-
-        let point1_hex = "04".to_owned() + &point1.0[2..] + &point1.1[2..];
-        let point2_hex = "04".to_owned() + &point2.0[2..] + &point2.1[2..];
-        let point1: G1 = from_hex(&point1_hex)?;
-
-        let point2: G1 = from_hex(&point2_hex)?;
-
-        Ok(Ciphertext{pk, points: (point1, point2)})
-    }
-
     /// Convert decimal string points to Ciphertext
     pub fn from_dec_string((point1, point2): (PointStr, PointStr), pk: PublicKey)
                            -> Result<Self, ConversionError> {
@@ -273,18 +234,6 @@ mod tests {
 
         let check = mult_dec_pltxt == mult_pltxt;
         assert!(check);
-    }
-
-    #[test]
-    fn test_from_hex_conversion() {
-        let sk = SecretKey::new(&mut thread_rng());
-        let pk = PublicKey::from(&sk);
-        let ctxt = pk.encrypt(&G1::random(&mut thread_rng()));
-
-        let ctxt_hex = ctxt.get_points_hex_string().unwrap();
-        let ctxt_from_hex = Ciphertext::from_hex_string(ctxt_hex, pk).unwrap();
-
-        assert_eq!(ctxt_from_hex, ctxt)
     }
 
     #[test]
