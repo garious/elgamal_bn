@@ -102,7 +102,7 @@ dependencies = [
 [[package]]
 name = "bn"
 version = "0.4.4"
-source = "git+https://github.com/paritytech/bn?rev=635c4cdd560bc0c8b262e6bf809dc709da8bcd7e#635c4cdd560bc0c8b262e6bf809dc709da8bcd7e"
+source = "git+https://github.com/paritytech/bn?rev=51eea1334c5e7278696c6ac6d8c8fecde39397ff#51eea1334c5e7278696c6ac6d8c8fecde39397ff"
 dependencies = [
  "byteorder",
  "crunchy",
