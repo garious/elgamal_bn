@@ -1,4 +1,3 @@
-extern crate sha3;
 use bn::{G1, Group};
 
 use rand::thread_rng;

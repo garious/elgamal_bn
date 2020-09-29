@@ -1,7 +1,5 @@
 #[cfg(feature = "std")]
 use thiserror::Error;
-use rustc_serialize::hex::FromHexError;
-use bincode::rustc_serialize::DecodingError;
 use bn::GroupError;
 
 /// Represents an error in hex parsing.
@@ -69,26 +67,6 @@ pub enum ProofError {
 impl From<ConversionError> for ProofError {
     fn from (_e: ConversionError) -> ProofError {
         ProofError::ConversionVerificationError
-    }
-}
-
-impl From<FromHexError> for ConversionError {
-    fn from(e: FromHexError) -> ConversionError {
-        match e {
-            FromHexError::InvalidHexCharacter(_, _) => ConversionError::InvalidHexLength,
-            FromHexError::InvalidHexLength => ConversionError::InvalidHexLength,
-        }
-    }
-}
-
-
-impl From<DecodingError> for ConversionError {
-    fn from(e: DecodingError) -> ConversionError {
-        match e {
-            DecodingError::IoError(_) => ConversionError::IoError,
-            DecodingError::InvalidEncoding(_) => ConversionError::InvalidEncoding,
-            DecodingError::SizeLimit => ConversionError::SizeLimit,
-        }
     }
 }
 

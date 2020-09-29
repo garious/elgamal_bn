@@ -7,23 +7,14 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+borsh = "0.7"
 rand_core = { version = "0.5.1", default-features = false }
-rand = {version = "0.5", default-features = true}
-rustc-serialize = { version = "0.3"}
+rand = {version = "0.7", default-features = true}
 sha2 = "0.8.0"
 clear_on_drop = { version = "0.2" }
-bn = {git = "https://github.com/paritytech/bn", rev = "51eea1334c5e7278696c6ac6d8c8fecde39397ff"}
+bn = {git = "https://github.com/garious/bn", rev = "5c35c737ffabac9921310f53f48725216d59cbf1", default-features = false, features = ["borsh"]}
 rustc-hex = { version = "2", default-features = false }
 thiserror = { version = "1", optional = true }
-sha3 = "0.8.2"
-ethabi = "12.0.0"
-
-multihash = "0.10.1"
-
-[dependencies.bincode]
-version = "0.6"
-default-features = false
-features = ["rustc-serialize"]
 
 [dev-dependencies]
 criterion = "0.2"

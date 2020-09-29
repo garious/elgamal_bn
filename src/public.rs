@@ -1,21 +1,17 @@
 #![allow(non_snake_case)]
 extern crate rand;
 
-extern crate bincode;
-extern crate rustc_serialize;
-
 use bn::*;
-use crate::errors::{ConversionError, ProofError};
+use crate::errors::ProofError;
 
 use rand::thread_rng;
-use sha3::{Digest, Keccak256};
+use sha2::{Digest, Sha256};
+use borsh::{BorshSerialize, BorshDeserialize};
 
 use crate::ciphertext::*;
-use bincode::{SizeLimit::Infinite, rustc_serialize::encode};
-
 
 /// The `PublicKey` struct represents an ElGamal public key.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct PublicKey(G1);
 
 impl PublicKey {
@@ -109,25 +105,7 @@ impl PublicKey {
     ) -> Result<(), ProofError> {
         let ((announcement_base_G, announcement_base_ctxtp0), response) = proof;
 
-        let message_affine = AffineG1::from_jacobian(message).ok_or(ConversionError::AffineConversionFailure)?;
-        let ctx1_affine = AffineG1::from_jacobian(ciphertext.points.0).ok_or(ConversionError::AffineConversionFailure)?;
-        let ctx2_affine = AffineG1::from_jacobian(ciphertext.points.1).ok_or(ConversionError::AffineConversionFailure)?;
-        let announcement_g_affine = AffineG1::from_jacobian(announcement_base_G).ok_or(ConversionError::AffineConversionFailure)?;
-        let announcement_ctxt0_affine = AffineG1::from_jacobian(announcement_base_ctxtp0).ok_or(ConversionError::AffineConversionFailure)?;
-        let generator_affine = AffineG1::from_jacobian(G1::one()).ok_or(ConversionError::AffineConversionFailure)?;
-        let pk_affine = AffineG1::from_jacobian(self.get_point()).ok_or(ConversionError::AffineConversionFailure)?;
-
-        let hash = Keccak256::new()
-            .chain(encode(&message_affine, Infinite).unwrap())
-            .chain(encode(&ctx1_affine, Infinite).unwrap())
-            .chain(encode(&ctx2_affine, Infinite).unwrap())
-            .chain(encode(&announcement_g_affine, Infinite).unwrap())
-            .chain(encode(&announcement_ctxt0_affine, Infinite).unwrap())
-            .chain(encode(&generator_affine, Infinite).unwrap())
-            .chain(encode(&pk_affine, Infinite).unwrap())
-        ;
-
-        let challenge = Fr::from_slice(&hash.result()[..]).unwrap();
+        let challenge = compute_challenge(&message, &ciphertext, &announcement_base_G, &announcement_base_ctxtp0, &self);
 
         if !(G1::one() * response == announcement_base_G + self.get_point() * challenge
             && ciphertext.points.0 * response
@@ -149,4 +127,24 @@ impl PartialEq for PublicKey {
     fn eq(&self, other: &PublicKey) -> bool {
         self.0 == other.0
     }
+}
+
+/// Compute challenge for the proof of correct decryption. Used in the variation
+/// that does not use Merlin.
+pub(crate) fn compute_challenge(
+    message: &G1,
+    ciphertext: &Ciphertext,
+    announcement_base_G: &G1,
+    announcement_base_ctxtp0: &G1,
+    pk: &PublicKey,
+) -> Fr {
+    let mut hasher = Sha256::new();
+    hasher.input(&message.try_to_vec().unwrap());
+    hasher.input(&ciphertext.points.0.try_to_vec().unwrap());
+    hasher.input(&ciphertext.points.1.try_to_vec().unwrap());
+    hasher.input(&announcement_base_G.try_to_vec().unwrap());
+    hasher.input(&announcement_base_ctxtp0.try_to_vec().unwrap());
+    hasher.input(&G1::one().try_to_vec().unwrap());
+    hasher.input(&pk.get_point().try_to_vec().unwrap());
+    Fr::from_slice(&hasher.result().as_slice()).unwrap()
 }

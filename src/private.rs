@@ -1,16 +1,11 @@
 #![allow(non_snake_case)]
 use rand::{thread_rng, Rng};
 
-use bincode::rustc_serialize::encode;
-use bincode::SizeLimit::Infinite;
-use sha3::{Digest, Keccak256};
-
-use bn::{Fr, Group, G1, AffineG1};
+use bn::{Fr, Group, G1};
 
 use crate::ciphertext::*;
 use crate::public::*;
 use crate::errors::ConversionError;
-
 
 /// Secret key is a scalar forming the public Key.
 /// todo: consider the crate Zeroize for dropping the secret key when it goes out of scope.
@@ -60,25 +55,7 @@ impl SecretKey {
         let announcement_base_G = G1::one() * announcement_random;
         let announcement_base_ctxtp0 = ciphertext.points.0 * announcement_random;
 
-        // We first need to get the points in affine form
-        let message_affine = jacobian_to_affine(&message)?;
-        let ctx1_affine = jacobian_to_affine(&ciphertext.points.0)?;
-        let ctx2_affine = jacobian_to_affine(&ciphertext.points.1)?;
-        let announcement_g_affine = jacobian_to_affine(&announcement_base_G)?;
-        let announcement_ctxt0_affine = jacobian_to_affine(&announcement_base_ctxtp0)?;
-        let generator_affine = jacobian_to_affine(&G1::one())?;
-        let pk_affine = jacobian_to_affine(&pk.get_point())?;
-
-        let hash = Keccak256::new()
-            .chain(encode(&message_affine, Infinite).unwrap())
-            .chain(encode(&ctx1_affine, Infinite).unwrap())
-            .chain(encode(&ctx2_affine, Infinite).unwrap())
-            .chain(encode(&announcement_g_affine, Infinite).unwrap())
-            .chain(encode(&announcement_ctxt0_affine, Infinite).unwrap())
-            .chain(encode(&generator_affine, Infinite).unwrap())
-            .chain(encode(&pk_affine, Infinite).unwrap())
-        ;
-        let challenge = Fr::from_slice(&hash.result()[..]).unwrap();
+        let challenge = compute_challenge(&message, &ciphertext, &announcement_base_G, &announcement_base_ctxtp0, &pk);
 
         let response = announcement_random + challenge * self.get_scalar();
         Ok(((announcement_base_G, announcement_base_ctxtp0), response))
@@ -96,11 +73,6 @@ impl<'a> From<&'a SecretKey> for PublicKey {
     fn from(secret: &'a SecretKey) -> PublicKey {
         PublicKey::from(G1::one() * secret.0)
     }
-}
-
-fn jacobian_to_affine(point: &G1) -> Result<AffineG1, ConversionError> {
-    AffineG1::from_jacobian(*point)
-        .ok_or(ConversionError::AffineConversionFailure)
 }
 
 #[cfg(test)]
