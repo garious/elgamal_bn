@@ -139,12 +139,12 @@ pub(crate) fn compute_challenge(
     pk: &PublicKey,
 ) -> Fr {
     let mut hasher = Sha256::new();
-    hasher.input(&message.try_to_vec().unwrap());
-    hasher.input(&ciphertext.points.0.try_to_vec().unwrap());
-    hasher.input(&ciphertext.points.1.try_to_vec().unwrap());
-    hasher.input(&announcement_base_G.try_to_vec().unwrap());
-    hasher.input(&announcement_base_ctxtp0.try_to_vec().unwrap());
-    hasher.input(&G1::one().try_to_vec().unwrap());
-    hasher.input(&pk.get_point().try_to_vec().unwrap());
-    Fr::from_slice(&hasher.result().as_slice()).unwrap()
+    message.serialize(&mut hasher).unwrap();
+    ciphertext.points.0.serialize(&mut hasher).unwrap();
+    ciphertext.points.1.serialize(&mut hasher).unwrap();
+    announcement_base_G.serialize(&mut hasher).unwrap();
+    announcement_base_ctxtp0.serialize(&mut hasher).unwrap();
+    G1::one().serialize(&mut hasher).unwrap();
+    pk.get_point().serialize(&mut hasher).unwrap();
+    Fr::from_slice(&hasher.finalize().as_slice()).unwrap()
 }
