@@ -5,7 +5,7 @@ use bn::*;
 use crate::errors::ProofError;
 
 use rand::thread_rng;
-use sha2::{Digest, Sha256};
+use solana_sdk::hash::hashv;
 use borsh::{BorshSerialize, BorshDeserialize};
 
 use crate::ciphertext::*;
@@ -138,13 +138,14 @@ pub(crate) fn compute_challenge(
     announcement_base_ctxtp0: &G1,
     pk: &PublicKey,
 ) -> Fr {
-    let mut hasher = Sha256::new();
-    message.serialize(&mut hasher).unwrap();
-    ciphertext.points.0.serialize(&mut hasher).unwrap();
-    ciphertext.points.1.serialize(&mut hasher).unwrap();
-    announcement_base_G.serialize(&mut hasher).unwrap();
-    announcement_base_ctxtp0.serialize(&mut hasher).unwrap();
-    G1::one().serialize(&mut hasher).unwrap();
-    pk.get_point().serialize(&mut hasher).unwrap();
-    Fr::from_slice(&hasher.finalize().as_slice()).unwrap()
+    let hash = hashv(&[
+        &message.try_to_vec().unwrap(),
+        &ciphertext.points.0.try_to_vec().unwrap(),
+        &ciphertext.points.1.try_to_vec().unwrap(),
+        &announcement_base_G.try_to_vec().unwrap(),
+        &announcement_base_ctxtp0.try_to_vec().unwrap(),
+        &G1::one().try_to_vec().unwrap(),
+        &pk.get_point().try_to_vec().unwrap(),
+    ]);
+    Fr::from_slice(hash.as_ref()).unwrap()
 }
